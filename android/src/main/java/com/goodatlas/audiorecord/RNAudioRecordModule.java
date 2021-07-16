@@ -6,11 +6,13 @@ import android.media.MediaRecorder.AudioSource;
 import android.util.Base64;
 import android.util.Log;
 
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.io.File;
@@ -101,23 +103,31 @@ public class RNAudioRecordModule extends ReactContextBaseJavaModule {
                     int bytesRead;
                     int count = 0;
                     String base64Data;
-                    byte[] buffer = new byte[bufferSize];
-                    FileOutputStream os = new FileOutputStream(tmpFile);
+                    short buffer[] = new short[bufferSize];
+                    // FileOutputStream os = new FileOutputStream(tmpFile);
 
-                    while (isRecording) {
-                        bytesRead = recorder.read(buffer, 0, buffer.length);
-
-                        // skip first 2 buffers to eliminate "click sound"
-                        if (bytesRead > 0 && ++count > 2) {
-                            base64Data = Base64.encodeToString(buffer, Base64.NO_WRAP);
-                            eventEmitter.emit("data", base64Data);
-                            os.write(buffer, 0, bytesRead);
+                    while (isRecording && !reactContext.getCatalystInstance().isDestroyed()) {
+                        WritableArray data = Arguments.createArray();
+                        recorder.read(buffer, 0, bufferSize);
+                        for (float value : buffer) {
+                            data.pushInt((int) value);
                         }
+                        eventEmitter.emit("data", data);
                     }
+                    // while (isRecording) {
+                    //     bytesRead = recorder.read(buffer, 0, buffer.length);
+
+                    //     // skip first 2 buffers to eliminate "click sound"
+                    //     if (bytesRead > 0 && ++count > 2) {
+                    //         base64Data = Base64.encodeToString(buffer, Base64.NO_WRAP);
+                    //         eventEmitter.emit("data", base64Data);
+                    //         os.write(buffer, 0, bytesRead);
+                    //     }
+                    // }
 
                     recorder.stop();
-                    os.close();
-                    saveAsWav();
+                    // os.close();
+                    // saveAsWav();
                     stopRecordingPromise.resolve(outFile);
                 } catch (Exception e) {
                     e.printStackTrace();

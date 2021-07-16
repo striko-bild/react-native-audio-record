@@ -88,8 +88,8 @@ void HandleInputBuffer(void *inUserData,
     short *samples = (short *) inBuffer->mAudioData;
     long nsamples = inBuffer->mAudioDataByteSize;
     NSData *data = [NSData dataWithBytes:samples length:nsamples];
-    NSString *str = [data base64EncodedStringWithOptions:0];
-    [pRecordState->mSelf sendEventWithName:@"data" body:str];
+    // NSString *str = [data base64EncodedStringWithOptions:0];
+    [pRecordState->mSelf sendEventWithName:@"data" body:data];
     
     AudioQueueEnqueueBuffer(pRecordState->mQueue, inBuffer, 0, NULL);
 }
