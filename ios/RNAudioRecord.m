@@ -16,10 +16,9 @@ RCT_EXPORT_METHOD(init:(NSDictionary *) options) {
     _recordState.mDataFormat.mFormatID          = kAudioFormatLinearPCM;
     _recordState.mDataFormat.mFormatFlags       = _recordState.mDataFormat.mBitsPerChannel == 8 ? kLinearPCMFormatFlagIsPacked : (kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked);
 
-    
     _recordState.bufferByteSize = 2048;
     _recordState.mSelf = self;
-    
+
     NSString *fileName = options[@"wavFile"] == nil ? @"audio.wav" : options[@"wavFile"];
     NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
     _filePath = [NSString stringWithFormat:@"%@/%@", docDir, fileName];
@@ -34,11 +33,11 @@ RCT_EXPORT_METHOD(start) {
 
     _recordState.mIsRunning = true;
     _recordState.mCurrentPacket = 0;
-    
+
     CFURLRef url = CFURLCreateWithString(kCFAllocatorDefault, (CFStringRef)_filePath, NULL);
     AudioFileCreateWithURL(url, kAudioFileWAVEType, &_recordState.mDataFormat, kAudioFileFlags_EraseFile, &_recordState.mAudioFile);
     CFRelease(url);
-    
+
     AudioQueueNewInput(&_recordState.mDataFormat, HandleInputBuffer, &_recordState, NULL, NULL, 0, &_recordState.mQueue);
     for (int i = 0; i < kNumberBuffers; i++) {
         AudioQueueAllocateBuffer(_recordState.mQueue, _recordState.bufferByteSize, &_recordState.mBuffers[i]);
@@ -69,11 +68,11 @@ void HandleInputBuffer(void *inUserData,
                        UInt32 inNumPackets,
                        const AudioStreamPacketDescription *inPacketDesc) {
     AQRecordState* pRecordState = (AQRecordState *)inUserData;
-    
+
     if (!pRecordState->mIsRunning) {
         return;
     }
-    
+
     if (AudioFileWritePackets(pRecordState->mAudioFile,
                               false,
                               inBuffer->mAudioDataByteSize,
@@ -84,13 +83,16 @@ void HandleInputBuffer(void *inUserData,
                               ) == noErr) {
         pRecordState->mCurrentPacket += inNumPackets;
     }
-    
-    short *samples = (short *) inBuffer->mAudioData;
-    long nsamples = inBuffer->mAudioDataByteSize;
-    NSData *data = [NSData dataWithBytes:samples length:nsamples];
-    // NSString *str = [data base64EncodedStringWithOptions:0];
-    [pRecordState->mSelf sendEventWithName:@"data" body:data];
-    
+
+    SInt16 *audioData = (SInt16*)inBuffer->mAudioData;
+    int count = inBuffer->mAudioDataByteSize / sizeof(SInt16);
+
+    NSMutableArray * temptarr = [[NSMutableArray alloc] initWithCapacity:count];
+    for (int i = 0; i < count; i++) {
+        [temptarr addObject: [NSNumber numberWithShort:audioData[i]]];
+    }
+
+    [pRecordState->mSelf sendEventWithName:@"data" body:temptarr];
     AudioQueueEnqueueBuffer(pRecordState->mQueue, inBuffer, 0, NULL);
 }
 
@@ -102,5 +104,4 @@ void HandleInputBuffer(void *inUserData,
     RCTLogInfo(@"dealloc");
     AudioQueueDispose(_recordState.mQueue, true);
 }
-
 @end
